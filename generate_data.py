@@ -1,12 +1,13 @@
-from GAN import train_gan
+import GAN
 import numpy as np
 import pandas as pd
 import tensorflow as tf
 from tensorflow import keras
 
-BATCH_SIZE = 32
+BATCH_SIZE = 128
+EPOCHS = 200
 CODINGS_SIZE = 100
-CLASS_SIZE = 10000  # This is the number of new data points per class (10 classes)
+CLASS_SIZE = 100000  # This is the number of new data points per class (10 classes)
 
 train = pd.read_csv('dataset/train.csv')
 train_copy = train.copy()
@@ -18,33 +19,14 @@ for class_num in range(10):
     # Apply masking
     data = X_train[train_copy.iloc[:, 0]==class_num]
     # Rescale values
-    data =  data / 255
+    data =  data / 255 * 2 - 1
     # Prepare data for training
     dataset = tf.data.Dataset.from_tensor_slices(data).shuffle(data.shape[0])
-    dataset = dataset.batch(BATCH_SIZE, drop_remainder=True).prefetch(1)
+    dataset = dataset.batch(int(BATCH_SIZE / 2), drop_remainder=True).prefetch(1)
 
     # Instantiate the GAN layers
-    generator = keras.models.Sequential([
-        keras.layers.Dense(7 * 7 * 128, input_shape=[CODINGS_SIZE]),
-        keras.layers.Reshape([7, 7, 128]),
-        keras.layers.BatchNormalization(),
-        keras.layers.Conv2DTranspose(64, kernel_size=5, strides=2, padding='same',
-            activation='selu'),
-        keras.layers.BatchNormalization(),
-        keras.layers.Conv2DTranspose(1, kernel_size=5, strides=2, padding='same',
-            activation='sigmoid'),
-    ])
-
-    discriminator = keras.models.Sequential([
-        keras.layers.Conv2D(64, kernel_size=5, strides=2, padding='same',
-            activation=keras.layers.LeakyReLU(0.2), input_shape=[28, 28, 1]),
-        keras.layers.Dropout(0.4),
-        keras.layers.Conv2D(128, kernel_size=5, strides=2, padding='same',
-            activation=keras.layers.LeakyReLU(0.2)),
-        keras.layers.Dropout(0.4),
-        keras.layers.Flatten(),
-        keras.layers.Dense(1, activation='sigmoid')
-    ])
+    generator = GAN.generator(CODINGS_SIZE)
+    discriminator = GAN.discriminator()
 
     gan = keras.models.Sequential([
         generator,
@@ -66,19 +48,21 @@ for class_num in range(10):
 
     # Train the GAN
     print(f'[INFO] Training GAN for class #{class_num}...')
-    train_gan(gan, dataset, BATCH_SIZE, CODINGS_SIZE)
+    GAN.train_gan(gan, dataset, BATCH_SIZE, CODINGS_SIZE, class_num, EPOCHS)
 
     # Generate synthetic data
     noise = np.random.uniform(0, 1, size=(CLASS_SIZE, CODINGS_SIZE))
-    gen_imgs = generator.predict(noise)
+    # Rescale the generator output from [-1, 1] to [0, 1]
+    gen_imgs = generator.predict(noise) / 2 + 0.5
+    # Flatten each image 2D array
     gen_imgs = gen_imgs.reshape([gen_imgs.shape[0], 784])
+    # Generate a 1D array of labels
     labels = np.full((gen_imgs.shape[0], 1), class_num)
     new_data = np.hstack([labels, gen_imgs])
     new_data = pd.DataFrame(new_data, columns=train.columns)
-    # Add the new synthetic data to existing data
-    train = pd.concat([train, new_data])
+    new_data.iloc[:, 0] = new_data.iloc[:, 0].astype(np.int8)
+    # Save new dataset
+    print('[INFO] Saving new dataset...')
+    new_data.to_csv(f'dataset/{class_num}.csv', index=False)
 
-# Save new dataset
-print('[INFO] Saving dataset...')
-train.to_csv('dataset/new_dataset.csv', index=False)
-print('[INFO] Done!')
+print('[INFO] All done!')
