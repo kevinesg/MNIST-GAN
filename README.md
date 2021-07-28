@@ -11,4 +11,6 @@ Here is the loss and accuracy vs number of epochs plot. As you can see, the mode
 
 The results aren't ideal but considering I didn't use a single image from the original dataset, 76% accuracy is not bad. The area of improvement is obviously the DCGAN architecture.
 #
+I didn't upload the csv files of the generated images because the total size is 16GB but you can generate your own csv files by running the code here.
+
 If you have any questions or suggestions, please let me know. Thanks for reading!
