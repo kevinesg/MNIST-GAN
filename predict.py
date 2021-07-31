@@ -37,7 +37,6 @@ train_set = functions.csv_reader_dataset(filepaths)
 from tensorflow.keras.optimizers import SGD
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.callbacks import ReduceLROnPlateau
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
 
 # MODEL
 # Compile model
@@ -54,17 +53,6 @@ model.compile(
 early_stopping = EarlyStopping(patience=10, restore_best_weights=True)
 lr_scheduler = ReduceLROnPlateau(factor=0.5, patience=10)
 callbacks = [early_stopping, lr_scheduler]
-
-# Data augmentation
-aug = ImageDataGenerator(
-    rotation_range=30,
-    width_shift_range=0.1,
-    height_shift_range=0.1,
-    shear_range=0.2,
-    zoom_range=0.2,
-    horizontal_flip=False,
-    fill_mode='nearest'
-)
 
 # Train model
 H = model.fit(
